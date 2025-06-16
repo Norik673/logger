@@ -1,6 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const archiveLogs = require('./archiver.log');
+const {fork} = require('child_process');
 
 class MyLogger {
     constructor(name, fileSize = 1024 * 1024, maxFiles = 5, env = 'development') {
@@ -64,8 +65,27 @@ class MyLogger {
                 try {
                     await fs.access(src);
                     if(i + 1 > this.maxFiles) {
-                        //console.log('true');
-                        await archiveLogs(this.logDir, this.name, this.maxFiles);
+                        //await archiveLogs(this.logDir, this.name, this.maxFiles)
+                        await new Promise((resolve, reject) => { 
+                            const child = fork(path.join(__dirname, 'archiver.log.js'), [
+                                this.logDir,
+                                this.name,
+                                this.maxFiles.toString()
+                            ]);
+
+                            child.on('close', (code) => {
+                                if(code === 0) {
+                                    console.log('archiver is finished in child process');
+                                    resolve();
+                                } else {
+                                    reject(new Error(`archiver is finished with ${code}`));
+                                }
+                            });
+
+                            child.on('error', (err) => {
+                                reject(err);
+                            });
+                        });
                         break; 
                     } else {
                         console.log('true');

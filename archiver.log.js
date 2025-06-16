@@ -20,9 +20,15 @@ async function archiveLogs(logDir, name, maxFiles) {
         }
     }
 
-    output.on('close', () => {
-        console.log('archive created')
-    })
+    await new Promise((resolve, reject) => {
+        output.on('close', () => {
+            console.log('archive created')
+            resolve();
+        });
+        output.on('error', reject);
+        archive.finalize();
+    });
+    
     await archive.finalize();
 
     for(let i = 1; i <= maxFiles; i++) {
@@ -33,6 +39,22 @@ async function archiveLogs(logDir, name, maxFiles) {
     }
 
     return archivePath;
+}
+
+if (require.main === module) {
+    const logDir = process.argv[2];
+    const name = process.argv[3];
+    const maxFiles = parseInt(process.argv[4], 10);
+
+    archiveLogs(logDir, name, maxFiles)
+    .then(() => {
+        console.log('archiver run as child process');
+        process.exit(0);
+    })
+    .catch((err) => {
+        console.error('error throw child process', err);
+        process.exit(1);
+    });
 }
 
 module.exports = archiveLogs;
